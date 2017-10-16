@@ -1,0 +1,1 @@
+# namcheap-ddns
