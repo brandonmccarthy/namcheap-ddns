@@ -50,15 +50,6 @@ func updateDomain(a apiAuth, f, ip string) error {
 	return nil
 }
 
-// Lookup the ip addresses of a domain and return list of IP addresses
-func getIPAddresses(domain string) ([]net.IP, error) {
-	resp, err := net.LookupIP(domain)
-	if err != nil {
-		return nil, fmt.Errorf("unable to lookup domain %s: %v\n", domain, err)
-	}
-	return resp, nil
-}
-
 // Reverse slice of string
 func reverse(s []string) []string {
 	var result []string
@@ -171,7 +162,8 @@ func main() {
 
 		// Iterate through domains and check IP addresses and update if needed
 		for _, domain := range domains {
-			domainIPs, err := getIPAddresses(domain)
+			// Lookup the ip addresses of a domain and return list of IP addresses
+			domainIPs, err := net.LookupIP(domain)
 			if err != nil {
 				glog.Warningf("Could not get IP addresses for domain %s: %v\n", domain, err)
 			}
