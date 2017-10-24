@@ -20,12 +20,13 @@ type fqdn struct {
 	TLD, SLD, Subdomain string
 }
 
-type apiAuth struct {
-	User, Username, Token string
+// dnsClient interface for mock testing
+type dnsClient interface {
+	DomainDNSSetHosts(sld, tld string, hosts []namecheap.DomainDNSHost) (*namecheap.DomainDNSSetHostsResult, error)
 }
 
 // updateDomain uses the namecheap API to set the record of a host
-func updateDomain(a apiAuth, f, ip string) error {
+func updateDomain(client dnsClient, f, ip string) error {
 	domain, err := parseFQDN(f)
 	if err != nil {
 		return fmt.Errorf("unable to parse FQDN: %v", err)
@@ -39,7 +40,6 @@ func updateDomain(a apiAuth, f, ip string) error {
 	},
 	)
 
-	client := namecheap.NewClient(a.User, a.Token, a.Username)
 	res, err := client.DomainDNSSetHosts(domain.SLD, domain.TLD, req)
 	if err != nil {
 		return fmt.Errorf("unable to set host address: %v", err)
@@ -144,10 +144,9 @@ func main() {
 		glog.Exitf("No username for namecheap API specified, exiting.")
 	}
 
-	nAPI := apiAuth{
-		User:     *apiUser,
-		Username: *apiUsername,
-		Token:    *apiToken,
+	client := namecheap.NewClient(*apiUser, *apiToken, *apiUsername)
+	if client == nil {
+		glog.Exitf("Unable to create new namecheap client.")
 	}
 
 	// Run until interrupted
@@ -170,7 +169,7 @@ func main() {
 			domainIP := domainIPs[0] // I only have one IP address per sub-domain
 			if domainIP.String() != localIP.String() {
 				glog.Warningf("Domain %s has IP %s want %s\n", domain, domainIP.String(), localIP.String())
-				err := updateDomain(nAPI, domain, localIP.String())
+				err := updateDomain(client, domain, localIP.String())
 				if err != nil {
 					glog.Warningf("Could not update domain %s: %v", domain, err)
 				}
