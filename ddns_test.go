@@ -70,27 +70,20 @@ func TestGetLocalIP(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		srv := httptest.NewServer(mockHTTPServer(c.label, c.input, t))
-		fmt.Printf("%s/%s\n", srv.URL, c.label)
-		ip, err := getLocalIP(fmt.Sprintf("%s/%s", srv.URL, c.label))
-		defer srv.Close()
-		if err != nil && c.wantErr {
-			continue
-		}
-		if err != nil && !c.wantErr {
-			t.Errorf("Test %s failed: received error, did not want error: %v", c.label, err)
-			continue
-		}
-		if err == nil && c.wantErr {
-			t.Errorf("Test %s failed: did not receive error, wanted an error", c.label)
-			continue
-		}
-		if ip.String() != c.want {
-			t.Errorf("Test %s failed: got %s, wanted %s", c.label, ip.String(), c.want)
-		} else {
-			t.Logf("Test %s passed: got %s, wanted %s", c.label, ip.String(), c.want)
-		}
-
+		t.Run(c.label, func(t *testing.T) {
+			srv := httptest.NewServer(mockHTTPServer(c.label, c.input, t))
+			ip, err := getLocalIP(fmt.Sprintf("%s/%s", srv.URL, c.label))
+			defer srv.Close()
+			if err != nil && !c.wantErr {
+				t.Errorf("Test %s failed: received error, did not want error: %v", c.label, err)
+			}
+			if err == nil && c.wantErr {
+				t.Errorf("Test %s failed: did not receive error, wanted an error", c.label)
+			}
+			if err == nil && ip.String() != c.want {
+				t.Errorf("Test %s failed: got %s, wanted %s", c.label, ip.String(), c.want)
+			}
+		})
 	}
 }
 
@@ -115,78 +108,90 @@ func TestUpdateDomain(t *testing.T) {
 			wantErr:   false,
 		},
 	} {
-		err := updateDomain(d, c.fqdn, c.ipAddress)
-		if err != nil && !c.wantErr {
-			t.Errorf("Test %s failed: got error, didn't want error: %v", c.label, err)
-		}
-		if err == nil && c.wantErr {
-			t.Errorf("Test %s failed: did not get an error, wanted an error.", c.label)
-		}
+		t.Run(c.label, func(t *testing.T) {
+			err := updateDomain(d, c.fqdn, c.ipAddress)
+			if err != nil && !c.wantErr {
+				t.Errorf("Test %s failed: got error, didn't want error: %v", c.label, err)
+			}
+			if err == nil && c.wantErr {
+				t.Errorf("Test %s failed: did not get an error, wanted an error.", c.label)
+			}
+		})
 	}
 }
 
 func TestReverse(t *testing.T) {
 	for _, c := range []struct {
+		label string
 		input []string
 		want  []string
 	}{
 		{
+			label: "number success",
 			input: []string{"one", "two", "three"},
 			want:  []string{"three", "two", "one"},
 		},
 		{
+			label: "alpha success",
 			input: []string{"abc", "def", "ghi", "jkl"},
 			want:  []string{"jkl", "ghi", "def", "abc"},
 		},
 	} {
-		res := reverse(c.input)
-		for k, v := range res {
-			if c.want[k] != v {
-				t.Errorf("Test failed: Got %v, want %v", res, c.want)
+		t.Run(c.label, func(t *testing.T) {
+			res := reverse(c.input)
+			for k, v := range res {
+				if c.want[k] != v {
+					t.Errorf("Test failed: Got %v, want %v", res, c.want)
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestParseFQDN(t *testing.T) {
 	for _, c := range []struct {
+		label   string
 		input   string
 		want    fqdn
 		wantErr bool
 	}{
 		{
+			label: "success",
 			input: "somehost.corp.com",
 			want: fqdn{
 				TLD:       "com",
 				SLD:       "corp",
 				Subdomain: "somehost",
 			},
-			wantErr: false,
 		},
 		{
+			label:   "bad parse",
 			input:   "google.com",
 			wantErr: true,
 		},
 		{
+			label: "long parse",
 			input: "sub.subdomain.foo.bar",
 			want: fqdn{
 				TLD:       "bar",
 				SLD:       "foo",
 				Subdomain: "subdomain",
 			},
-			wantErr: false,
 		},
 	} {
-		resp, err := parseFQDN(c.input)
-		if err != nil && c.wantErr {
-			continue
-		}
-		if err == nil && c.wantErr {
-			t.Errorf("Did not receive an error, wanted an error: %v", err)
-			continue
-		}
-		if resp.TLD != c.want.TLD || resp.SLD != c.want.SLD || resp.Subdomain != c.want.Subdomain {
-			t.Errorf("Got %v want %v", resp, c.want)
-		}
+		t.Run(c.label, func(t *testing.T) {
+			resp, err := parseFQDN(c.input)
+			if err == nil && c.wantErr {
+				t.Errorf("Did not receive an error, wanted an error: %v", err)
+			}
+			if err != nil && !c.wantErr {
+				t.Errorf("Did not want an error, received na error: %v", err)
+			}
+			if err == nil {
+				if resp.TLD != c.want.TLD || resp.SLD != c.want.SLD || resp.Subdomain != c.want.Subdomain {
+					t.Errorf("Got %v want %v", resp, c.want)
+				}
+			}
+		})
 	}
 }
