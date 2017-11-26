@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	nc "github.com/billputer/go-namecheap"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -36,58 +36,44 @@ func (client *client) DomainDNSSetHosts(sld, tld string, hosts []nc.DomainDNSHos
 }
 
 // Run a fake HTTP server that will shutdown once a GET request is fulfilled
-func mockHTTPServer(label, input string, t *testing.T) {
-	t.Log("Creating server to listen on 127.0.0.1:8080")
-	stop := make(chan bool)
-	srv := &http.Server{
-		Addr: ":8080",
-	}
-	t.Log("Creating handler function for HTTP server")
-	http.HandleFunc("/"+label, func(w http.ResponseWriter, r *http.Request) {
+func mockHTTPServer(label, input string, t *testing.T) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/"+label, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, input)
-		stop <- true
 	})
-	go func(srv *http.Server) {
-		t.Logf("%v\n", srv.ListenAndServe())
-	}(srv)
-	<-stop
-	t.Log("Received request from server to shutdown")
-	ctx := context.Background()
-	srv.Shutdown(ctx)
+	return mux
 }
 
 func TestGetLocalIP(t *testing.T) {
 	for _, c := range []struct {
 		label   string
-		url     string
 		input   string
 		want    string
 		wantErr bool
 	}{
 		{
 			label:   "success",
-			url:     "http://localhost:8080/success",
 			input:   "192.168.10.1\n\n",
 			want:    "192.168.10.1",
 			wantErr: false,
 		},
 		{
 			label:   "hardparse",
-			url:     "http://localhost:8080/hardparse",
 			input:   "Your IP address is: 192.168.30.1\n\n",
 			want:    "192.168.30.1",
 			wantErr: false,
 		},
 		{
 			label:   "failure",
-			url:     "http://lcaolhost:8080/failure",
 			input:   "EROROROORORO\n\n",
 			want:    "nil",
 			wantErr: true,
 		},
 	} {
-		go mockHTTPServer(c.label, c.input, t)
-		ip, err := getLocalIP(c.url)
+		srv := httptest.NewServer(mockHTTPServer(c.label, c.input, t))
+		fmt.Printf("%s/%s\n", srv.URL, c.label)
+		ip, err := getLocalIP(fmt.Sprintf("%s/%s", srv.URL, c.label))
+		defer srv.Close()
 		if err != nil && c.wantErr {
 			continue
 		}
@@ -104,7 +90,7 @@ func TestGetLocalIP(t *testing.T) {
 		} else {
 			t.Logf("Test %s passed: got %s, wanted %s", c.label, ip.String(), c.want)
 		}
-		
+
 	}
 }
 

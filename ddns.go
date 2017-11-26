@@ -84,7 +84,7 @@ func getLocalIP(ipResolver string) (net.IP, error) {
 		}
 		if r.StatusCode != 200 {
 			glog.Infof("Domain %s responded with status code %d, retrying...", ipResolver, r.StatusCode)
-			return fmt.Errorf("server returned error code %d\n", resp.StatusCode)
+			return fmt.Errorf("server returned error code %d\n", r.StatusCode)
 		}
 		resp = r
 		return nil
